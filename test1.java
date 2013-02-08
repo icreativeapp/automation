@@ -1,9 +1,20 @@
-package test;
 
-import static org.testng.Assert.assertEquals;
+
+import com.saucelabs.common.SauceOnDemandAuthentication;
+import com.saucelabs.common.SauceOnDemandSessionIdProvider;
+import com.saucelabs.testng.SauceOnDemandAuthenticationProvider;
+import com.saucelabs.testng.SauceOnDemandTestListener;
+import org.apache.commons.lang.StringUtils;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.remote.DesiredCapabilities;
+import org.openqa.selenium.remote.RemoteWebDriver;
+import org.openqa.selenium.remote.SessionId;
+import org.testng.annotations.*;
 
 import java.lang.reflect.Method;
 import java.net.URL;
+
+import static org.testng.Assert.assertEquals;
 
 import org.openqa.selenium.By;
 import org.openqa.selenium.Platform;
@@ -19,12 +30,16 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Optional;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
+
+
 /**
  *
  * @author Ross Rowe
  */
+@Listeners({SauceOnDemandTestListener.class})
+public class WebDriverWithHelperTest implements SauceOnDemandSessionIdProvider, SauceOnDemandAuthenticationProvider {
 
-public class test1{
+    public SauceOnDemandAuthentication authentication;
 
     private WebDriver driver;
 
@@ -42,13 +57,18 @@ public class test1{
      */
     @Parameters({"username", "key", "os", "browser", "browserVersion"})
     @BeforeMethod
-  public void setUp(@Optional("icreativeapp") String username,
-			  @Optional("8e40a4f9-07bd-4bdb-88f2-806eb88c63ab") String key,
-			  @Optional("XP") String os,
-			  @Optional("firefox") String browser,
-			  @Optional("5.0") String browserVersion,
-			  Method method) throws Exception {
+    public void setUp(@Optional("icreativeapp") String username,
+                      @Optional("8e40a4f9-07bd-4bdb-88f2-806eb88c63ab") String key,
+                      @Optional("XP") String os,
+                      @Optional("firefox") String browser,
+                      @Optional("3") String browserVersion,
+                      Method method) throws Exception {
 
+        if (StringUtils.isNotEmpty(username) && StringUtils.isNotEmpty(key)) {
+           authentication = new SauceOnDemandAuthentication(username, key);
+        } else {
+           authentication = new SauceOnDemandAuthentication();
+        }
 
         DesiredCapabilities capabillities = new DesiredCapabilities();
         capabillities.setBrowserName(browser);
@@ -56,30 +76,45 @@ public class test1{
         capabillities.setCapability("platform", Platform.valueOf(os));
         capabillities.setCapability("name", method.getName());
         this.driver = new RemoteWebDriver(
-					  new URL("http://" + username + ":" + key + "@ondemand.saucelabs.com:80/wd/hub"),
-					  capabillities);
+                new URL("http://" + authentication.getUsername() + ":" + authentication.getAccessKey() + "@ondemand.saucelabs.com:80/wd/hub"),
+                capabillities);
+    }
+
+    /**
+     * {@inheritDoc}
+     * @return
+     */
+    @Override
+    public String getSessionId() {
+        SessionId sessionId = ((RemoteWebDriver)driver).getSessionId();
+        return (sessionId == null) ? null : sessionId.toString();
     }
 
     @Test
-	public void basic() throws Exception {
-    	
+    public void basic() throws Exception {
 
-    	driver.get("http://markavip.com");
+
+driver.get("http://markavip.com");
     	driver.findElement(By.className("do_modal")).click();
     	WebDriverWait wait=new WebDriverWait(driver, 25);
     	wait.until(ExpectedConditions.visibilityOfElementLocated(By.className("login-form")));
     	Assert.assertTrue(driver.findElement(By.className("login-form")).isDisplayed());
     	
-       /* driver.get("http://www.markavip.com/");
-        driver.findElement(By.id("super-featured-wrapper")).click();
-        //assertEquals("Amazon.com: Online Shopping for Electronics, Apparel, Computers, Books, DVDs & more", driver.getTitle());
-    */
-    
-    
+
+
     }
 
     @AfterMethod
-	public void tearDown() throws Exception {
+    public void tearDown() throws Exception {
         driver.quit();
+    }
+
+    /**
+     * {@inheritDoc}
+     * @return
+     */
+    @Override
+    public SauceOnDemandAuthentication getAuthentication() {
+        return authentication;
     }
 }
